@@ -1,65 +1,59 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConnectionDB = ConnectionDB;
+import express from "express";
+import colors from "colors";
+import cors from "cors";
+import morgan from "morgan";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger";
+import router from "./router";
+import db from "./config/db";
+import dotenv from "dotenv";
 
-const express_1 = __importDefault(require("express"));
-const colors_1 = __importDefault(require("colors"));
-const cors_1 = __importDefault(require("cors"));
-const morgan_1 = __importDefault(require("morgan"));
-const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
-const swagger_1 = __importDefault(require("./config/swagger"));
-const router_1 = __importDefault(require("./router"));
-const db_1 = __importDefault(require("./config/db"));
-require("dotenv").config(); // Cargar variables de entorno
+dotenv.config(); // Cargar variables de entorno
 
 // Conexión a la base de datos
-async function ConnectionDB() {
-    try {
-        await db_1.default.authenticate();
-        db_1.default.sync();
-        console.log(colors_1.default.bgMagenta("✅ Conexión exitosa a la Base de Datos"));
-    } catch (error) {
-        console.log(colors_1.default.bgRed.white("❌ Error al conectar a la Base de Datos"));
-    }
+export async function ConnectionDB() {
+  try {
+    await db.authenticate();
+    await db.sync();
+    console.log(colors.bgMagenta("✅ Conexión exitosa a la Base de Datos"));
+  } catch (error) {
+    console.error(colors.bgRed.white("❌ Error al conectar a la Base de Datos"), error);
+  }
 }
 ConnectionDB();
 
-// Instancia de Express
-const server = (0, express_1.default)();
+const server = express();
 
-// Configuración de CORS segura
-const corsOptions = {
-    origin: function (origin, callback) {
-        const allowedOrigin = process.env.FRONTEND_URL;
+// Configuración segura de CORS
+const FRONTEND_URL = process.env.FRONTEND_URL || "";
 
-        if (!origin || origin === allowedOrigin) {
-            callback(null, true);
-        } else {
-            console.log(`❌ CORS bloqueado para origen: ${origin}`);
-            callback(new Error("No autorizado por CORS"));
-        }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || origin === FRONTEND_URL) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS bloqueado para origen: ${origin}`);
+      callback(new Error("No autorizado por CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// Activar CORS con opciones personalizadas
-server.use((0, cors_1.default)(corsOptions));
+server.use(cors(corsOptions));
 
 // Middlewares
-server.use(express_1.default.json());
-server.use((0, morgan_1.default)("dev"));
+server.use(express.json());
+server.use(morgan("dev"));
 
 // Rutas
-server.use("/api/products", router_1.default);
+server.use("/api/products", router);
 server.get("/api", (req, res) => {
-    res.json({ msg: "Desde API" });
+  res.json({ msg: "Desde API" });
 });
 
 // Documentación Swagger
-server.use("/docs", swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.default));
+server.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-exports.default = server;
+export default server;
